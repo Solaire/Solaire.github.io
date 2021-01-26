@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<title>Index of ~/Solaire</title>
+	<style>
+		body {
+			font-family: monospace;
+			background-color: #121212;
+			color: #f0f0f0;
+			padding: 2em;
+		}
+		h1 {
+			font-size: 1.5em;
+			margin-bottom: 1em;
+			color: #fff;
+		}
+		table {
+			width: 100%;
+			border-collapse: collapse;
+		}
+		th, td {
+			text-align: left;
+			padding: 0.25em 0.5em;
+			vertical-align: top;
+		}
+		th {
+			border-bottom: 2px solid #555;
+			color: #ccc;
+		}
+		tr:nth-child(even) {
+			background-color: #1e1e1e;
+		}
+		tr:nth-child(odd) {
+			background-color: #181818;
+		}
+		a {
+			color: #4ea3ff;
+			text-decoration: none;
+		}
+		a:hover {
+			text-decoration: underline;
+		}
+		.desc {
+			color: #aaa;
+		}
+		details {
+			margin-top: 0.5em;
+		}
+		summary {
+			cursor: pointer;
+			color: #8ab4f8;
+		}
+		ul.releases {
+			margin: 0.5em 0 0 1.5em;
+			padding-left: 0;
+			list-style: none;
+		}
+		ul.releases li {
+			margin-bottom: 0.25em;
+		}
+		.star-div {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+		.star {
+			color:#f7c843;
+			fill:#f7c843;
+		}
+	</style>
+</head>
+<body>
+	<h1>Index of <a href="https://www.github.com/solaire">~/Solaire</a></h1>
+	<table>
+		<colgroup>
+			<col style="width: 10%;">
+			<col style="width: 35%;">
+			<col style="width: 15%;">
+			<col style="width: 5%;">
+			<col style="width: 35%;">
+		</colgroup>
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Description / Releases</th>
+				<th>Last Commit</th>
+				<th>Stars</th>
+				<th>Open Issues</th>
+			</tr>
+		</thead>
+		<tbody id="repo-table">
+			<tr><td colspan="3">Loading...</td></tr>
+		</tbody>
+	</table>
+	
+	<script>
+		const username = "solaire";
+		const table = document.getElementById("repo-table");
+		
+		async function fetchReleases(repo) 
+		{
+			const res = await fetch(`https://api.github.com/repos/${username}/${repo}/releases`);
+			if (!res.ok) return [];
+			return res.json();
+		}
+		
+		fetch(`https://api.github.com/users/${username}/repos?per_page=100`)
+		.then(async res => {
+			if (!res.ok)
+			{
+				const error = await res.text();
+				console.log(res);
+				throw new Error(`GitHub API error: ${error}`);
+			}
+			return res.json();
+		})
+		.then(async repos => {
+			table.innerHTML = "";
+			const filtered = repos
+			.filter(repo => !repo.name.toLowerCase().includes(username.toLowerCase()))
+			.filter(repo => !repo.fork)
+			.sort((a, b) => b.stargazers_count - a.stargazers_count);
+			
+			for (const repo of filtered) 
+			{
+				const tr = document.createElement("tr");
+				const releases = await fetchReleases(repo.name);
+				const description = `<div class="desc">${repo.description || "No description."}</div>`;
+
+				const latestCommit = await fetch(`https://api.github.com/repos/${username}/${repo.name}/commits/${repo.default_branch}`)
+					.then(res => res.ok ? res.json() : null)
+					.catch(() => null);
+
+				let commitInfo = "";
+
+				if (latestCommit) 
+				{
+					commitInfo = `
+					<div>
+						<a href="${latestCommit.html_url}" target="_blank">
+							${latestCommit.sha}
+						</a>
+						<span style="color:#888;">(${new Date(latestCommit.commit.author.date).toLocaleDateString()})</span>
+					</div>`;
+				}
+
+				let releaseSection = "";
+				if(releases.length > 0)
+				{
+					releaseSection = 
+					`<details>
+						<summary>Show Releases (${releases.length})</summary>
+						<ul class="releases">
+							${releases.map(r => `
+							<li>
+								<a href="${r.html_url}" target="_blank">
+									${(!r.name)
+										? r.tag_name
+										: (r.name.includes(r.tag_name))
+											? r.name
+											: `${r.name} (${r.tag_name})` }
+								</a>
+								<span style="color:#888;">(${new Date(r.published_at).toLocaleDateString()})</span>
+							</li>
+							`).join("")}
+						</ul>
+					</details>`;
+				};
+					
+				tr.innerHTML = `
+					<td>
+						<a href="${repo.html_url}" target="_blank">${repo.name}/</a>
+					</td>
+					<td>
+						${description}
+						${releaseSection}
+					</td>
+					<td>${commitInfo}</td>
+					<td>
+						<div class="star-div" style="color:#888;"> 
+							<svg aria-hidden="true" height="16" viewBox="0 0 16 16" version="1.1" width="16" data-view-component="true" class="star">
+								<path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"></path>
+							</svg>
+							${repo.stargazers_count}
+						</div>
+					</td>
+					<td>
+						<div style="color:#888;"> 
+							${repo.open_issues}
+						</div>
+					</td>
+				`;
+				table.appendChild(tr);
+			}
+				
+			if (table.innerHTML === "") 
+			{
+				table.innerHTML = "<tr><td colspan='3'>No repositories to display.</td></tr>";
+			}
+		})
+		.catch(err => 
+		{
+			table.innerHTML = `<tr><td colspan="3">Error: ${err.message}</td></tr>`;
+		});
+	</script>
+</body>
+</html>
